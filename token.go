@@ -182,7 +182,18 @@ func (tkn *Tokenizer) Scan() (int, []byte) {
 	case isLetter(ch):
 		return tkn.scanIdentifier()
 	case isDigit(ch):
-		return tkn.scanNumber(false)
+		//return tkn.scanNumber(false)
+		num_t, num_res := tkn.scanNumber(false)
+		if tkn.ForceEOF || !tkn.isDigitIDValid(tkn.lastChar) || tkn.lastChar == 0 {
+			return num_t, num_res
+		}
+		_, id_res := tkn.scanIdentifier()
+		for _, v := range id_res {
+			if v != 0 {
+				num_res = append(num_res, v)
+			}
+		}
+		return ID, num_res
 	case ch == ':':
 		return tkn.scanBindVar()
 	default:
@@ -268,6 +279,13 @@ func (tkn *Tokenizer) skipBlank() {
 		tkn.next()
 		ch = tkn.lastChar
 	}
+}
+func (tkn *Tokenizer) isDigitIDValid(ch uint16) bool {
+	if ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t' || ch == ')' || ch == ',' || ch == 0 {
+		return false
+	}
+
+	return true
 }
 
 func (tkn *Tokenizer) scanIdentifier() (int, []byte) {
@@ -462,6 +480,17 @@ func (tkn *Tokenizer) next() {
 		tkn.lastChar = uint16(ch)
 	}
 	tkn.Position++
+}
+
+func (tkn *Tokenizer) pre_next() (uint16, error) {
+	var ch byte
+	var err error
+	if ch, err = tkn.InStream.ReadByte(); err != nil {
+		return 0, err
+	}
+
+	tkn.InStream.UnreadByte()
+	return uint16(ch), nil
 }
 
 func isLetter(ch uint16) bool {
